@@ -1,7 +1,11 @@
+import os
+
 import cv2
 import numpy
 import time
-from emailing import send_email
+
+import emailing_mock
+
 import glob
 
 video = cv2.VideoCapture(1)
@@ -9,9 +13,16 @@ video = cv2.VideoCapture(1)
 time.sleep(1)
 
 first_frame = None
-
 count = 1
 status_list = []
+
+
+def clean_folder():
+    images = glob.glob("images/*.png")
+    for image in images:
+        os.remove(image)
+
+
 while True:
     status = 0
     check, frame = video.read()
@@ -42,10 +53,9 @@ while True:
             continue
         # Detect contours coordinates
         x, y, w, h = cv2.boundingRect(contour)
-        my_rectangle = cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
+        my_rectangle = cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
         if my_rectangle.any():
             status = 1
-
             # Capture image
             cv2.imwrite(f"images/{count}.png", frame)
             count = count + 1
@@ -53,13 +63,17 @@ while True:
             index = int(len(all_images) / 2)
             image_with_object = all_images[index]
 
-
     status_list.append(status)
     status_list = status_list[-2:]
 
     if status_list[0] == 1 and status_list[1] == 0:
         # Object left the frame
-        send_email()
+        emailing_mock.send_email(image_with_object)
+        # send_email() slows down the process. Python is trying to finish this function first.
+        # So we have somehow to process it at the same time while next operations are being done.
+
+        # After sending image of object, to clean the folder
+        clean_folder()
 
     cv2.imshow("Video from Camera. Press Q to Exit", frame)
     key = cv2.waitKey(1)
