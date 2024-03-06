@@ -1,12 +1,10 @@
 import os
-
 import cv2
 import numpy
 import time
-
-import emailing_mock
-
+from emailing_mock import send_emailto
 import glob
+from threading import Thread
 
 video = cv2.VideoCapture(1)
 # 0 - primary, 1 - secondary cam
@@ -18,9 +16,11 @@ status_list = []
 
 
 def clean_folder():
+    print("Clean Folder function started")
     images = glob.glob("images/*.png")
     for image in images:
         os.remove(image)
+    print("Clean Folder function ended")
 
 
 while True:
@@ -68,12 +68,17 @@ while True:
 
     if status_list[0] == 1 and status_list[1] == 0:
         # Object left the frame
-        emailing_mock.send_email(image_with_object)
+        email_thread = Thread(target=send_emailto, args=(image_with_object,))
+        email_thread.daemon = True
         # send_email() slows down the process. Python is trying to finish this function first.
-        # So we have somehow to process it at the same time while next operations are being done.
+        # So we use threading to process it at the same time while next operations are being done.
 
         # After sending image of object, to clean the folder
-        clean_folder()
+        clean_thread = Thread(target=clean_folder)
+        clean_thread.daemon = True
+
+        email_thread.start()
+        clean_thread.start()
 
     cv2.imshow("Video from Camera. Press Q to Exit", frame)
     key = cv2.waitKey(1)
